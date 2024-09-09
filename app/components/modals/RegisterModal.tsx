@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { AiFillGithub } from 'react-icons/ai';
 import { FcGoogle } from 'react-icons/fc';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { FieldValues, SubmitHandler, useForm } from 'react-hook-form';
 import useRegisterModal from '@/app/hooks/useRegisterModal';
 import Modal from './Modal';
@@ -10,6 +10,7 @@ import Heading from '../Heading';
 import Input from '../inputs/Input';
 import toast from 'react-hot-toast';
 import Button from '../Button';
+import { signIn, SignInResponse } from 'next-auth/react';
 
 const RegisterModal = () => {
     const registerModal = useRegisterModal();
@@ -28,10 +29,30 @@ const RegisterModal = () => {
         }
     });
 
-    const onSubmit: SubmitHandler<FieldValues> = (data) => {
+    const onSubmit: SubmitHandler<FieldValues> = async (data) => {
         setIsLoading(true);
 
-        axios.post('/api/register', data)
+        try {
+            const response = await axios.post('/api/register', data);
+            const {email} = response.data;
+
+            const result: SignInResponse | undefined = await signIn('credentials', {
+                redirect: false,
+                email: email,
+                password: data.password,
+            });
+            if (result?.error) {
+                toast.error('Connexion échouée : ' + result.error);
+            } else {
+                registerModal.onClose();
+            }
+        } catch (error) {
+            toast.error('Something went wrong. ' + (error as Error).message);
+        } finally {
+            setIsLoading(false);
+        }
+
+        /*axios.post('/api/register', data)
             .then(() => {
                 registerModal.onClose();
             })
@@ -40,7 +61,7 @@ const RegisterModal = () => {
             })
             .finally(() => {
                 setIsLoading(false);
-            })
+            })*/
     }
 
     const bodyContent = (
@@ -84,13 +105,13 @@ const RegisterModal = () => {
                 outline
                 label='Continue with Google'
                 icon={FcGoogle}
-                onClick={(()=> {})}
+                onClick={()=> signIn('google')}
             />
             <Button 
                 outline
                 label='Continue with Github'
                 icon={AiFillGithub}
-                onClick={(()=> {})}
+                onClick={() => signIn('github')}
             />
             <div 
                 className='
